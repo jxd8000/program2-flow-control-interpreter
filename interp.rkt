@@ -2,7 +2,7 @@
 
 ;;;; ***************************************************
 ;;;; Jianhao Deng
-;;;; Darion Gomez
+;;;; Darion Achilles Gomez
 ;;;; Chloe de Lamare
 ;;;; CSDS 345 Spring 2026
 ;;;; Project 1
@@ -28,13 +28,24 @@
 (define statement-statementlist? pair?)
 
 
-;M_statementlist
+; M_statementlist-cps
+; statementlist state -> state
+(define M_statementlist-cps
+  (lambda (statementlist state next return break continue throw)
+    (cond
+      ((empty? statementlist) (return state)) ; If the statementlist is empty, then no changes to state occur
+      (else (M_statementlist-cps (statementlistof statementlist)
+                             (M_statement (statementof statementlist) state) return break continue throw)))))
+
+; M_statementlist for easier calling
 (define M_statementlist
   (lambda (statementlist state)
-    (cond
-      ((empty? statementlist) state) ; If the statementlist is empty, then no changes to state occur
-      (else (M_statementlist (statementlistof statementlist)
-                             (M_statement (statementof statementlist) state))))))
+    (M_statementlist-cps statementlist state
+                         (lambda (s) (M_statementlist-cps statementlist s next return break continue throw))      ;next - should just execute next statement in statementlist
+                         (lambda (s) s)     ;return - simply return the state resulting from executing that statementlist
+                         (lambda (v) v)     ;break - should this be an error
+                         (lambda (v) v)     ;continue - should this be an error
+                         (lambda (v) v))))  ;throw - should this be an error
 
 ; abstractions for M_statement
 (define keyword car)
@@ -43,8 +54,10 @@
 (define expression-of-statement caddr)
 (define expression cadr)
 
+; M_statement-cps
+; statement state -> state
 (define M_statement
-  (lambda (statement state)
+  (lambda (statement state next return break continue throw)
     (cond
       ((eq? (keyword statement) 'var) (if (= (length statement) 3) ; if 'var is present we know its a declare statement, additionally if '= is present we must consider expression
                                            (M_declare2 (name-of statement) (expression-of-statement statement) state) ; use diff declare to handle expression
