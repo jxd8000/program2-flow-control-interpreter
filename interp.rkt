@@ -52,7 +52,7 @@
       ((eq? (keyword statement) 'var) (if (= (length statement) 3) ; if 'var is present we know its a declare statement, additionally if '= is present we must consider expression
                                            (M_declare2 (name-of statement) (expression-of-statement statement) state) ; use diff declare to handle expression
                                            (M_declare1 (name-of statement) state)))
-      ((eq? (keyword statement) 'return) (M_return (expression statement) state)) ;return
+      ((eq? (keyword statement) 'return) (M_return (expression statement) state)) ;return - change to return continuation?
       ((eq? (keyword statement) 'if) (M_if statement state))
       ((eq? (keyword statement) 'while) (M_while statement state))
       ((eq? (keyword statement) '=) (M_assign (name-of-assignment statement) (expression-of-statement statement) state))
@@ -61,7 +61,7 @@
 ;M_declare1 - declares a variable
 ; returns a new state for the new variable declared
 (define M_declare1
-  (lambda (name state)
+  (lambda (name state next return break continue throw)
     (cond
       ((state-has? name state) (error 'badop "Redefining variable: ~s" name)) ; if it already exists
       (else (state-declare name state)))))
@@ -69,19 +69,19 @@
 ;M_declare2 - declares a variable while with a value
 ; returns a new state for the new variable declared
 (define M_declare2
-  (lambda (name expression state)
+  (lambda (name expression state next return break continue throw)
     (cond
       ((state-has? name state) (error 'badop "Redefining variable: ~s" name))
       (else (state-declare/init name (M_expression expression state) state)))))
 
 (define M_assign
-  (lambda (name expression state)
+  (lambda (name expression state next return break continue throw)
     (interpret "sample_programs/t15prof.txt")(state-update name (M_expression expression state) state)))
 
-(define M_return
-  (lambda (expression state)
+(define M_return ; instead of using state-set-return use return continuation
+  (lambda (expression state state next return break continue throw)
     (state-set-return
-     (convert-bool (M_expression expression state)) state))) ; not entirely sure that's the state I should be using
+     (convert-bool (M_expression expression state)) state)))
 
 (define convert-bool
   (lambda (v)
@@ -92,7 +92,7 @@
         v)))
 
 (define M_if
-  (lambda (statement state)
+  (lambda (statement state next return break continue throw)
     (let* ([cond-expr (cadr statement)]
            [then-stmt (caddr statement)]
            [has-else? (>= (length statement) 4)])
@@ -102,8 +102,11 @@
               (M_statement (cadddr statement) state)
               state)))))
 
+;(define cond-expr cadr statement
+; ask teammates for consistent coding style for less confusion
+
 (define M_while
-  (lambda (statement state)
+  (lambda (statement state next return break continue throw)
     (let ([cond-expr (cadr statement)]
           [body-stmt (caddr statement)])
       (let loop ([st state])
@@ -114,3 +117,6 @@
     
     
       
+; continuation is used to jump in the code, next jump to next line of code, for each statement type where do I need to jump to
+; where is this code supposed to do
+; where in the interpreter is the final output done?
