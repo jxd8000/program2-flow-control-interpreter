@@ -30,7 +30,8 @@
   (lambda (block state next return break continue throw)
     (cond
       ((empty? block) (return state))
-      ((eq? 'begin (beginningof block)) (M_statementlist-cps (bodyof block) state next return break continue throw)))))
+      ((eq? 'begin (beginningof block)) (M_statementlist-cps (bodyof block) next return break continue throw)))))
+
       
 
 ; abstractions for M_statementlist
@@ -126,9 +127,7 @@
             (loop (M_statement body-stmt st))
             st)))))
 
-    
-    
-      
+       
 ; continuation is used to jump in the code, next jump to next line of code, for each statement type where do I need to jump to
 ; where is this code supposed to do
 ; where in the interpreter is the final output done?
