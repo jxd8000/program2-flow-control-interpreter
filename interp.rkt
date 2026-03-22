@@ -5,7 +5,7 @@
 ;;;; Darion Achilles Gomez
 ;;;; Chloe de Lamare
 ;;;; CSDS 345 Spring 2026
-;;;; Project 1
+;;;; Project 2
 ;;;; ***************************************************
 
 (require "state.rkt")
@@ -27,7 +27,6 @@
        (lambda (st) (error "continue used outside loop"))
        (lambda (val st) (error (format "Uncaught excepetion: ~a" val)))))))
           
-           
 
 ;abstractions for M_blockofcode
 (define beginningof car)
@@ -116,7 +115,7 @@
   (lambda (name expression state next return break continue throw)
     (next (state-update name (M_expression expression state) state))))
 
-(define M_return ; instead of using state-set-return use return continuation
+(define M_return 
   (lambda (expression state next return break continue throw)
     (return (convert-bool (M_expression expression state)) state)))
 
@@ -136,9 +135,6 @@
           (if has-else?
               (M_statement (cadddr statement) state next return break continue throw)
               (next state))))))
-
-;(define cond-expr cadr statement
-; ask teammates for consistent coding style for less confusion
 
 (define M_while
   (lambda (statement state next return break continue throw)
