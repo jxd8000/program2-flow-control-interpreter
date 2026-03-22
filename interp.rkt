@@ -169,13 +169,6 @@
   (lambda (statement state next return break continue throw)
     (throw (M_expression (cadr statement) state) state)))
 
-;; <try> ::= try { <statementlist> } catch ( <var> ) { <statementlist> } finally { <statementlist> } |
-;;           try { <statement list > } catch ( <var> ) { <statementlist> } |
-;;           try { <statementlist> } finally { <statementlist> }
-;; (try body (catch (e) body) (finally body))
-;; (try body (catch (e) body))
-;; (try body (finally body))
-
 ;; abstractions for try/catch/finally
 (define catch-block second)
 (define finally-block third)
@@ -185,17 +178,20 @@
 (define catch?   (lambda (x) (and (pair? x) (eq? (car x) 'catch))))
 (define finally? (lambda (x) (and (pair? x) (eq? (car x) 'finally))))
 
-;; runs the try body
-(define M_trybody
-  (lambda (try-body finally-part state next return break continue throw new-throw)
-    (M_blockofcode (cons 'begin try-body)
-                   state
-                   ;; 
-                   (lambda (s) (M_finally finally-part s next return break continue throw))
-                   (lambda (v s) (M_finally finally-part s (lambda (s2) (return v s2)) return break continue throw))
-                   (lambda (s) (M_finally finally-part s break return break continue throw))
-                   (lambda (s) (M_finally finally-part s continue return break continue throw))
-                   new-throw)))
+;; runs the catch body
+(define M_catch-body
+  (lambda (catch-part val state next return break continue throw)
+    (let ((catch-state (state-declare/init (catch-var catch-part) val (push-layer state))))
+      ;; runs the catch body with a state that has the exception bound
+      (M_statementlist-cps
+       (catch-body catch-part)
+       catch-state
+       ;; for the continuations, remove the layer with the exception bound
+       (lambda (s) (next (pop-layer s)))
+       (lambda (v s) (return v (pop-layer s)))
+       (lambda (s) (break (pop-layer s)))
+       (lambda (s) (continue (pop-layer s)))
+       (lambda (v s) (throw v (pop-layer s)))))))
 
 ;; runs the finally block if it exists then calls continuation k
 (define M_finally
@@ -204,19 +200,6 @@
         (k state)
         (M_blockofcode (cons 'begin (finally-body finally-part))
                        state k return break continue throw))))
-
-;; runs the catch body
-(define M_catch-body
-  (lambda (catch-part val state next return break continue throw)
-    (let ((catch-state (state-declare/init (catch-var catch-part) val (push-layer state))))
-      (M_statementlist-cps
-       (catch-body catch-part)
-       catch-state
-       (lambda (s) (next (pop-layer s)))
-       (lambda (v s) (return v (pop-layer s)))
-       (lambda (s) (break (pop-layer s)))
-       (lambda (s) (continue (pop-layer s)))
-       (lambda (v s) (throw v (pop-layer s)))))))
 
 (define M_try
   (lambda (statement state next return break continue throw)
@@ -238,4 +221,10 @@
                                 (lambda (s) (M_finally finally-part s break return break continue throw))
                                 (lambda (s) (M_finally finally-part s continue return break continue throw))
                                 (lambda (v s) (M_finally finally-part s (lambda (s2) (throw v s2)) return break continue throw)))))))
-      (M_trybody try-body finally-part state next return break continue throw new-throw))))
+      (M_blockofcode (cons 'begin try-body)
+                   state
+                   (lambda (s) (M_finally finally-part s next return break continue throw))
+                   (lambda (v s) (M_finally finally-part s (lambda (s2) (return v s2)) return break continue throw))
+                   (lambda (s) (M_finally finally-part s break return break continue throw))
+                   (lambda (s) (M_finally finally-part s continue return break continue throw))
+                   new-throw))))
